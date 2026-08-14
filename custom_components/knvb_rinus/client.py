@@ -280,6 +280,9 @@ class RinusClient:
         raise RinusDataError(str(last_error) if last_error else "Rinus is niet bereikbaar")
 
     async def async_fetch_all(self) -> dict[str, Any]:
+        # The authenticated team data is served by the Rinus modal API.
+        # This is the endpoint used by the browser on /profile/team and it
+        # returns the team/schedule object directly as JSON.
         team_html, calendar_html = await asyncio.gather(
             self._get_first(TEAM_PATHS),
             self._get_first(CALENDAR_PATHS),

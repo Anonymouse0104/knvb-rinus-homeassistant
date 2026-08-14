@@ -65,7 +65,7 @@ class RinusSensor(CoordinatorEntity, SensorEntity):
             match = data.get("next_match") or {}
             if not match:
                 return "Geen wedstrijd"
-            return match.get("date") or "Gepland"
+            return (f"{match.get('date')} {match.get('time')}".strip() if match.get("date") else "Gepland")
         if self._kind == "matches":
             return len(data.get("matches") or [])
         if self._kind == "players":
@@ -93,7 +93,7 @@ class RinusSensor(CoordinatorEntity, SensorEntity):
                 "is_futsal": team.get("isFutsal"),
                 "schedule": team.get("schedule"),
                 "raw_team": team,
-                "data_source": "Rinus /profile/team",
+                "data_source": "Rinus /api/modals/get/team/profile",
             }
         if self._kind == "next_opponent":
             match = data.get("next_match") or {}
@@ -101,7 +101,8 @@ class RinusSensor(CoordinatorEntity, SensorEntity):
         if self._kind == "next_training":
             training = data.get("next_training") or {}
             if training:
-                training["data_source"] = "Rinus team schedule + calendar"
+                training = dict(training)
+                training["data_source"] = "Rinus /api/modals/get/team/profile + calendar"
             return training
         if self._kind == "next_match":
             return self._match_attrs(data.get("next_match") or {})

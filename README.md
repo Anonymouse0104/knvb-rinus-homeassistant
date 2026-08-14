@@ -2,7 +2,7 @@
 
 Custom Home Assistant integration for **KNVB Rinus**.
 
-The integration reads the authenticated Rinus team page and calendar and exposes team, season, training, match and player information in Home Assistant.
+The integration reads the authenticated Rinus team profile API and calendar and exposes team, season, training, match and player information in Home Assistant.
 
 ## What is included
 
@@ -33,7 +33,7 @@ After installation, restart Home Assistant and add the integration.
 
 ## Important
 
-Rinus is a web application and does not provide a documented public API for this integration. The integration therefore reads the data that Rinus itself sends to the authenticated web client. Changes to the Rinus website can require updates to this integration.
+Rinus is a web application and does not provide a documented public API for this integration. The integration uses the same authenticated endpoints that the Rinus web client calls, including `/api/modals/get/team/profile`. Changes to the Rinus website can require updates to this integration.
 
 ## Data observed from Rinus
 
