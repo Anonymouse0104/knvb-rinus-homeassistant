@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KNVB Rinus instellen",
+        "description": "Gebruik de CraftSessionId-cookie uit je eigen Rinus-sessie.",
+        "data": {
+          "session_cookie": "CraftSessionId-cookie"
+        },
+        "data_description": {
+          "session_cookie": "Alleen de waarde van CraftSessionId."
+        }
+      },
+      "reauth": {
+        "title": "Rinus-sessie vernieuwen",
+        "description": "Je Rinus-sessie is verlopen. Voer een nieuwe CraftSessionId-cookie in.",
+        "data": {
+          "session_cookie": "CraftSessionId-cookie"
+        }
+      }
+    },
+    "error": {
+      "invalid_session": "De Rinus-sessie is ongeldig of verlopen.",
+      "cannot_connect": "Kan geen verbinding maken met Rinus."
+    },
+    "abort": {
+      "already_configured": "Dit Rinus-team is al geconfigureerd."
+    }
+  }
+}
