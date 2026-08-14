@@ -221,6 +221,12 @@ class RinusClient:
             or data.get("session")
             or ""
         ).strip()
+        # The config flow asks for the CraftSessionId value only.  Rinus expects
+        # a normal HTTP Cookie header, so turn a bare session value into the
+        # actual cookie pair.  Also accept a full Cookie header for backwards
+        # compatibility.
+        if self.cookie and "=" not in self.cookie:
+            self.cookie = f"CraftSessionId={self.cookie}"
         self._session: ClientSession | None = None
 
     async def _get(self, path: str) -> str:
@@ -247,6 +253,14 @@ class RinusClient:
         ) as response:
             text = await response.text()
             final_path = str(getattr(response.url, "path", ""))
+            _LOGGER.debug(
+                "Rinus GET %s -> %s (%s), final path=%s, %d bytes",
+                path,
+                response.status,
+                response.headers.get("Content-Type", ""),
+                final_path,
+                len(text),
+            )
 
             if response.status in (401, 403) or "/login" in final_path:
                 raise RinusDataError("De Rinus-sessie/cookie is verlopen of ongeldig.")
@@ -273,9 +287,16 @@ class RinusClient:
 
         team = _extract_team(team_html)
         calendar = _extract_calendar(calendar_html)
+        _LOGGER.debug(
+            "Rinus parsed team=%s, calendar_items=%d",
+            bool(team),
+            len(calendar.get("items") or []),
+        )
 
         if not team:
-            _LOGGER.warning("Rinus teamgegevens konden niet uit /profile/team worden gehaald")
+            _LOGGER.warning(
+                "Rinus teamgegevens konden niet uit de profielresponses worden gehaald"
+            )
         if not calendar.get("items"):
             _LOGGER.warning("Rinus kalender bevat geen items")
 

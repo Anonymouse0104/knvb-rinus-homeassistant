@@ -3,10 +3,10 @@
   "name": "KNVB Rinus",
   "codeowners": [],
   "config_flow": true,
-  "documentation": "https://github.com/REPLACE_WITH_YOUR_GITHUB_USERNAME/knvb-rinus-homeassistant",
-  "issue_tracker": "https://github.com/REPLACE_WITH_YOUR_GITHUB_USERNAME/knvb-rinus-homeassistant/issues",
+  "documentation": "https://github.com/Anonymouse0104/knvb-rinus-homeassistant",
+  "issue_tracker": "https://github.com/Anonymouse0104/knvb-rinus-homeassistant/issues",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "requirements": [],
-  "version": "0.2.2"
+  "version": "0.2.3"
 }

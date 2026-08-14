@@ -42,3 +42,7 @@ Rinus exposes calendar entries with fields such as `isTrainingDay`, `isMatchDay`
 ## License
 
 MIT
+
+
+### Cookie
+Enter only the `CraftSessionId` value in the config flow. The integration automatically sends it as `CraftSessionId=<value>` to Rinus. A full Cookie header is also accepted.
