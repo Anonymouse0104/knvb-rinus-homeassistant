@@ -7,42 +7,86 @@ The integration reads the authenticated Rinus team profile API and calendar and 
 ## What is included
 
 - Season and team information
+- Club and team metadata
 - Training schedule and next training
 - Next match and opponent
 - Full calendar/match data as entity attributes
 - Player list
-- Playing time per player and per match
+- Playing time per player and per match when Rinus provides it
 - Formation, lineup and match status when Rinus provides them
-- Clean HACS package with branding
+- HACS package with KNVB Rinus branding
 
-## Authentication
+## Installation with HACS
 
-Rinus uses a KNVB account session. This integration therefore uses the authenticated browser cookie rather than storing a KNVB password.
+1. Open **HACS → Integrations**.
+2. Search for **KNVB Rinus** or add this repository as a custom repository:
+   `https://github.com/Anonymouse0104/knvb-rinus-homeassistant`
+3. Install **KNVB Rinus**.
+4. Restart Home Assistant.
+5. Go to **Settings → Devices & services → Add integration → KNVB Rinus**.
 
-In Home Assistant go to **Settings → Devices & services → Add integration → KNVB Rinus** and paste the current Rinus `Cookie` request-header value from your browser's DevTools.
+## Authentication – finding the Cookie header
 
-The cookie is stored in the Home Assistant config entry and is not committed to GitHub by this project.
+KNVB Rinus does not provide a documented public API login for this integration. The integration therefore uses the active browser session from your logged-in Rinus account.
 
-If the cookie expires, open the integration options and replace it with a fresh cookie.
+You must paste the **complete `Cookie` request-header value** into the Home Assistant configuration form.
 
-## HACS
+### Chrome / Chromium
 
-Add this GitHub repository as a custom repository in HACS under **Integrations** and install **KNVB Rinus**.
+1. Log in to **Rinus** in Chrome.
+2. Open your Rinus team/profile page.
+3. Press **F12** to open Developer Tools.
+4. Open the **Network** tab.
+5. Reload the page if necessary.
+6. Find the request named **`profile`**. For the current Rinus website this request is:
+   `GET https://rinus.knvb.nl/api/modals/get/team/profile`
+7. Click the **`profile`** request.
+8. Open **Headers**.
+9. Scroll to **Request Headers**.
+10. Find the line named **`Cookie`**.
+11. Right-click the value next to `Cookie` and choose **Copy value**.
+12. Paste the **entire copied value** into the `Cookie` field in Home Assistant.
 
-After installation, restart Home Assistant and add the integration.
+### Do not use `Set-Cookie`
 
-## Important
+There are two similarly named headers that can be confusing:
 
-Rinus is a web application and does not provide a documented public API for this integration. The integration uses the same authenticated endpoints that the Rinus web client calls, including `/api/modals/get/team/profile`. Changes to the Rinus website can require updates to this integration.
+- **Correct:** `Request Headers → Cookie` ✅
+- **Wrong:** `Response Headers → Set-Cookie` ❌
 
-## Data observed from Rinus
+The integration needs the complete `Cookie` request header, not just `CraftSessionId` and not the `Set-Cookie` response header.
 
-Rinus exposes calendar entries with fields such as `isTrainingDay`, `isMatchDay`, `date`, `type`, `training`, `match`, `event`, `rating` and `blueprint`. Match events can contain formation, match status, players, current lineup and `playingTime` values.
+### Security warning
+
+The Cookie header contains active session information for your Rinus account. Treat it like a password:
+
+- Do **not** post it on GitHub.
+- Do **not** put it in a public issue.
+- Do **not** share it with other people.
+- Do **not** paste it into chat when asking for support.
+
+The cookie is stored in the Home Assistant config entry and is not included in this repository.
+
+If your Rinus session expires, repeat the steps above and replace the cookie through the integration options/configuration.
+
+## What the integration currently uses
+
+The authenticated team information is retrieved from the endpoint used by the Rinus web application:
+
+`/api/modals/get/team/profile`
+
+This response currently contains team information, season information and the training schedule. The calendar endpoint is used for match information.
+
+Rinus is a web application and does not provide a documented public API for this integration. Changes to the Rinus website can therefore require updates to this integration.
+
+## Development
+
+The integration lives under:
+
+`custom_components/knvb_rinus/`
+
+Do not commit personal Rinus cookies, session tokens or other authentication data to GitHub.
 
 ## License
 
 MIT
-
-
-### Cookie
-Enter only the `CraftSessionId` value in the config flow. The integration automatically sends it as `CraftSessionId=<value>` to Rinus. A full Cookie header is also accepted.

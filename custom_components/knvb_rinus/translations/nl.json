@@ -3,10 +3,14 @@
     "step": {
       "user": {
         "title": "KNVB Rinus",
-        "description": "Plak de actuele Cookie request-header van je ingelogde Rinus-sessie.",
-        "data": {"cookie": "Cookie"}
+        "description": "Plak hier de volledige Cookie-header van je ingelogde Rinus-sessie. Open Rinus in Chrome → F12 → Network → open je teamprofiel → klik op 'profile' → Headers → Request Headers → Cookie. Klik met de rechtermuisknop op de Cookie-waarde en kies 'Copy value'. Plak daarna de volledige waarde hieronder. Gebruik niet de 'Set-Cookie'-regel bij Response Headers.",
+        "data": {
+          "cookie": "Volledige Cookie-header"
+        }
       }
     },
-    "error": {"invalid_auth": "De Rinus-sessie/cookie is ongeldig of verlopen."}
+    "error": {
+      "invalid_auth": "De Rinus-sessie/cookie is ongeldig of verlopen. Controleer of je de volledige Cookie-header uit Request Headers hebt gekopieerd."
+    }
   }
 }

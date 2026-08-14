@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "KNVB Rinus",
-        "description": "Paste the current Cookie request header from your logged-in Rinus session.",
+        "description": "Paste the full Cookie header from your logged-in Rinus session. In Chrome, open Rinus → F12 → Network → open your team profile → click 'profile' → Headers → Request Headers → Cookie. Right-click the Cookie value and choose 'Copy value'. Paste the complete value below. Do not use the 'Set-Cookie' line under Response Headers.",
         "data": {
-          "cookie": "Cookie"
+          "cookie": "Full Cookie header"
         }
       }
     },
     "error": {
-      "invalid_auth": "The Rinus session cookie is invalid or expired."
+      "invalid_auth": "The Rinus session cookie is invalid or expired. Make sure you copied the complete Cookie header from Request Headers."
     }
   }
 }

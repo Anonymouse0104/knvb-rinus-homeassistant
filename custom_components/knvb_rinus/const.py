@@ -1,6 +1,6 @@
 DOMAIN = "knvb_rinus"
 NAME = "KNVB Rinus"
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 BASE_URL = "https://rinus.knvb.nl"
 TEAM_PATHS = ("/api/modals/get/team/profile", "/profile/team", "/profile", "/nl/profile/team")
 CALENDAR_PATHS = ("/nl/calendar", "/calendar")
