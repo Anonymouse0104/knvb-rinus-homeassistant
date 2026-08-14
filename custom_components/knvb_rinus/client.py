@@ -10,7 +10,7 @@ from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
 
-from .const import BASE_URL, CALENDAR_PATHS, CONF_COOKIE, TEAM_PATHS
+from .const import BASE_URL, CALENDAR_PATHS, CONF_COOKIE, PLAYER_PATH, TEAM_PATHS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -198,6 +198,89 @@ def _extract_roster(text: str) -> list[dict[str, Any]]:
     return roster
 
 
+
+def _extract_player_modal_roster(text: str) -> list[dict[str, Any]]:
+    """Extract the complete editable player list from the Rinus players modal.
+
+    The browser uses /api/modals/edit/players/open to populate the player
+    editor.  Its JSON response contains a form/orderlist with entries named
+    team_playerItem_text_N.  This endpoint is authoritative for the complete
+    manually maintained team roster, including newly added players that are
+    not present in the profile/team response.
+    """
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        _LOGGER.debug("Rinus spelersmodal gaf geen geldige JSON-response")
+        return []
+
+    roster: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def walk(value: Any):
+        if isinstance(value, dict):
+            yield value
+            for child in value.values():
+                yield from walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from walk(child)
+
+    for candidate in walk(payload):
+        items = candidate.get("items")
+        if not isinstance(items, list):
+            continue
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            options = item.get("options")
+            if not isinstance(options, list):
+                continue
+
+            for option in options:
+                if not isinstance(option, dict):
+                    continue
+                input_data = option.get("input")
+                if not isinstance(input_data, dict):
+                    continue
+                input_name = str(input_data.get("name") or "")
+                if not input_name.startswith("team_playerItem_text_"):
+                    continue
+
+                name = str(input_data.get("value") or "").strip()
+                if not name:
+                    # Rinus always includes an extra empty row for adding the
+                    # next player. It is not part of the roster.
+                    continue
+
+                option_id = str(option.get("id") or "")
+                parts = option_id.split("::")
+                uuid = parts[1].strip() if len(parts) >= 2 and parts[1].strip() else ""
+                index = input_name.rsplit("_", 1)[-1]
+
+                # A populated Rinus player normally has a UUID.  Keep a stable
+                # fallback for older/manual entries that do not have one.
+                player_id = uuid or f"name:{name.casefold()}"
+                if player_id in seen:
+                    continue
+                seen.add(player_id)
+
+                roster.append(
+                    {
+                        "uuid": player_id,
+                        "name": name,
+                        "index": index,
+                        "raw_player": option,
+                        "source": "Rinus /api/modals/edit/players/open",
+                    }
+                )
+
+    _LOGGER.debug(
+        "Rinus players modal parser found %d roster entries", len(roster)
+    )
+    return roster
+
 def _extract_calendar(text: str) -> dict[str, Any]:
     """Extract the calendar payload from the calendar page."""
     page_props = _page_props(text)
@@ -324,7 +407,9 @@ class RinusClient:
             )
 
         headers = {
-            "Referer": BASE_URL + path,
+            # Rinus opens the player editor from the team profile page.
+            # Keep the same browser-style referer for this modal endpoint.
+            "Referer": BASE_URL + ("/profile/team" if path == PLAYER_PATH else path),
         }
         if self.cookie:
             headers["Cookie"] = self.cookie
@@ -366,13 +451,17 @@ class RinusClient:
         # The authenticated team data is served by the Rinus modal API.
         # This is the endpoint used by the browser on /profile/team and it
         # returns the team/schedule object directly as JSON.
-        team_html, calendar_html = await asyncio.gather(
+        team_html, calendar_html, players_html = await asyncio.gather(
             self._get_first(TEAM_PATHS),
             self._get_first(CALENDAR_PATHS),
+            self._get(PLAYER_PATH),
         )
 
         team = _extract_team(team_html)
-        roster = _extract_roster(team_html)
+        # The editable players modal is the authoritative roster source.
+        # /api/modals/get/team/profile does not contain manually added players
+        # such as newly created entries in the Rinus team editor.
+        roster = _extract_player_modal_roster(players_html)
         calendar = _extract_calendar(calendar_html)
         _LOGGER.debug(
             "Rinus parsed team=%s, roster_players=%d, calendar_items=%d",
@@ -387,7 +476,7 @@ class RinusClient:
             )
         if not roster:
             _LOGGER.warning(
-                "Rinus profielresponse bevat geen bruikbare spelerslijst"
+                "Rinus spelersmodal bevat geen bruikbare spelerslijst"
             )
         if not calendar.get("items"):
             _LOGGER.warning("Rinus kalender bevat geen items")
@@ -451,7 +540,9 @@ class RinusClient:
                 "name": roster_player["name"],
                 "total_playing_time": 0,
                 "matches": [],
-                "raw_player": roster_player,
+                "raw_player": roster_player.get("raw_player", roster_player),
+                "roster_index": roster_player.get("index"),
+                "source": roster_player.get("source", "Rinus /api/modals/edit/players/open"),
             }
 
         # Merge match participation and playing time into the roster.

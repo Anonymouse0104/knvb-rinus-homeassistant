@@ -100,6 +100,13 @@ Add this repository as a custom repository in HACS under **Integrations**:
 
 Install **KNVB Rinus**, restart Home Assistant, then add the integration under **Settings → Devices & services**.
 
+## v0.4.3 changes
+
+- Fixed player roster discovery by using the Rinus player-management endpoint `/api/modals/edit/players/open`.
+- Newly added players such as manually entered team members are now discovered automatically.
+- Empty extra player rows are ignored.
+- Player entities continue to use the `mdi:account` icon and are created/removed dynamically.
+
 ## v0.4.2 changes
 
 - More robust roster parsing: all valid player lists in the Rinus team/profile payload are merged and de-duplicated by player UUID.
@@ -108,7 +115,7 @@ Install **KNVB Rinus**, restart Home Assistant, then add the integration under *
 
 ## Version
 
-Current version: **0.4.2**
+Current version: **0.4.3**
 
 ## License
 
