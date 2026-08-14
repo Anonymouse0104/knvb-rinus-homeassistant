@@ -3,19 +3,63 @@
     "step": {
       "user": {
         "title": "KNVB Rinus verbinden",
-        "description": "{cookie_help}\n\n**Kort:** F12 → Network → open een Rinus-request → Headers → Request Headers → **Cookie** → rechtsklik → Copy value.\n\nGebruik **niet** Response Headers → Set-Cookie.",
-        "data": {"cookie": "Cookie"},
-        "data_description": {"cookie": "Plak hier de volledige Cookie request-header uit Chrome of Edge."}
+        "description": "{cookie_help}\n\n**Kort:** F12 → Network → open een Rinus-request → Headers → Request Headers → **Cookie** → rechtsklik → **Copy value**.\n\nGebruik **niet** Response Headers → Set-Cookie.",
+        "data": {
+          "cookie": "Cookie"
+        },
+        "data_description": {
+          "cookie": "Plak hier de volledige Cookie request-header uit Chrome of Edge."
+        }
       }
+    },
+    "error": {
+      "invalid_auth": "De Rinus-cookie is ongeldig of verlopen. Controleer Request Headers → Cookie."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "KNVB Rinus instellingen",
-        "description": "{cookie_help}\n\n**Cookie nodig?** Gebruik de waarde bij Request Headers → Cookie van een Rinus-request. Gebruik niet Set-Cookie.",
-        "data": {"cookie": "Cookie"},
-        "data_description": {"cookie": "Volledige Cookie request-header uit Chrome of Edge."}
+        "description": "{cookie_help}\n\nJe kunt hier ook de automatische verversingsfrequentie instellen.",
+        "data": {
+          "cookie": "Cookie",
+          "scan_interval": "Automatisch verversen"
+        },
+        "data_description": {
+          "cookie": "Volledige Cookie request-header uit Chrome of Edge.",
+          "scan_interval": "Hoe vaak Home Assistant nieuwe Rinus-data ophaalt."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "De Rinus-cookie is ongeldig of verlopen. Controleer Request Headers → Cookie."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Verbinding"
+      },
+      "season": {
+        "name": "Seizoen"
+      },
+      "team": {
+        "name": "Team"
+      },
+      "next_opponent": {
+        "name": "Volgende tegenstander"
+      },
+      "next_training": {
+        "name": "Volgende training"
+      },
+      "next_match": {
+        "name": "Volgende wedstrijd"
+      },
+      "matches": {
+        "name": "Wedstrijden"
+      },
+      "players": {
+        "name": "Spelers"
       }
     }
   }

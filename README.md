@@ -9,7 +9,7 @@ The integration reads the authenticated Rinus team profile and calendar and expo
 - Season and team information
 - Training schedule and next training
 - Next match and opponent
-- Match count and detailed match entities
+- Match count and dynamic match entities
 - Player count and one entity per current team player
 - New players added in Rinus are detected automatically on the next refresh
 - Players removed from the Rinus team roster are removed automatically
@@ -17,7 +17,9 @@ The integration reads the authenticated Rinus team profile and calendar and expo
 - Playing minutes per player
 - Per-player match history
 - Match players, line-up, formation and status when supplied by Rinus
-- Raw Rinus data preserved in entity attributes where practical
+- Connection/status sensor showing whether the last update succeeded
+- Automatic polling; configurable at 5, 10, 15, 30 or 60 minutes
+- Diagnostics support with authentication data redacted
 - HACS-compatible package with KNVB Rinus branding
 
 ## Authentication – Cookie instructions
@@ -31,17 +33,13 @@ Rinus does not provide a documented public API for this integration. The integra
 1. Open **https://rinus.knvb.nl/** and make sure you are logged in.
 2. Press **F12** to open Developer Tools.
 3. Open the **Network** tab.
-4. Reload the Rinus page if necessary.
-5. In the Network list, open a request to `rinus.knvb.nl`. A request such as `profile` is suitable.
+4. Reload Rinus if necessary.
+5. Open a request to `rinus.knvb.nl`. A request such as `team.json` or `profile` is suitable.
 6. Open **Headers**.
 7. Scroll to **Request Headers**.
 8. Find **Cookie**.
 9. Right-click the Cookie value and choose **Copy value**.
-10. Paste that **entire value** into the KNVB Rinus configuration screen in Home Assistant.
-
-The endpoint `/api/modals/get/team/profile` is one of the authenticated endpoints used by the Rinus web client and is a useful request to inspect.
-
-The current player roster is read from the authenticated team profile payload (`team[].players`). This allows players who have not yet appeared in a match to be added to Home Assistant.
+10. Paste the **complete value** into the KNVB Rinus configuration screen.
 
 ### Important: Cookie vs Set-Cookie
 
@@ -53,25 +51,29 @@ Do **not** use:
 
 `Response Headers → Set-Cookie`
 
-The Cookie header contains the complete browser session information required by the integration.
+The Cookie header is sensitive authentication information and must never be published.
 
-### Security
+## Automatic refresh
 
-The Cookie header is sensitive authentication information. **Never paste it into GitHub, GitHub Issues, screenshots, forum posts or support requests.** Treat it like a password.
+The default refresh interval is **15 minutes**. In the integration options you can select:
 
-If the session expires, repeat the steps above and replace the cookie through the integration options.
+- 5 minutes
+- 10 minutes
+- 15 minutes
+- 30 minutes
+- 60 minutes
 
-## HACS installation
+When the Rinus session expires, the integration keeps the last successfully fetched data and reports the connection failure through the **Verbinding** sensor and Home Assistant logs. Replace the cookie through the integration options to restore updates.
 
-Add this repository as a custom repository in HACS under **Integrations**:
+## Dynamic players and matches
 
-`https://github.com/Anonymouse0104/knvb-rinus-homeassistant`
+The current team roster is read from the authenticated Rinus team profile (`team[].players`). This means players do not have to appear in a match before they can be exposed in Home Assistant.
 
-Install **KNVB Rinus**, restart Home Assistant, then add the integration under **Settings → Devices & services**.
+The integration also creates match entities dynamically from the Rinus calendar. Newly added matches are picked up during the next refresh without restarting Home Assistant.
 
 ## Data exposed
 
-The integration keeps the Rinus payload available in Home Assistant attributes where possible. Depending on what Rinus currently returns, this can include:
+Depending on what Rinus currently returns, data can include:
 
 - team IDs, club, age group and season
 - training days, times, duration and field size
@@ -84,11 +86,23 @@ The integration keeps the Rinus payload available in Home Assistant attributes w
 - player match history
 - calendar item information
 
-Rinus can change its web/API structure without notice. If the website changes, some fields may temporarily become unavailable and an update to this integration may be required.
+## Diagnostics
+
+Home Assistant diagnostics can be used when reporting an issue. Authentication information such as cookies, session identifiers, tokens and authorization headers is redacted before diagnostics are returned.
+
+**Never paste your Cookie header into GitHub Issues, screenshots, forums or chat.**
+
+## HACS installation
+
+Add this repository as a custom repository in HACS under **Integrations**:
+
+`https://github.com/Anonymouse0104/knvb-rinus-homeassistant`
+
+Install **KNVB Rinus**, restart Home Assistant, then add the integration under **Settings → Devices & services**.
 
 ## Version
 
-Current version: **0.3.1**
+Current version: **0.4.0**
 
 ## License
 

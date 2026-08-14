@@ -5,12 +5,10 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity import generate_entity_id
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NAME, VERSION
+from .const import DOMAIN, VERSION
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -24,7 +22,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         configuration_url="https://rinus.knvb.nl/",
     )
 
-    entities: list[SensorEntity] = [
+    static_entities: list[SensorEntity] = [
+        RinusSensor(coordinator, entry, device_info, "connection", "Verbinding", "mdi:cloud-check"),
         RinusSensor(coordinator, entry, device_info, "season", "Seizoen", "mdi:calendar-range"),
         RinusSensor(coordinator, entry, device_info, "team", "Team", "mdi:soccer-field"),
         RinusSensor(coordinator, entry, device_info, "next_opponent", "Volgende tegenstander", "mdi:shield-account"),
@@ -35,18 +34,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     ]
 
     player_entities: dict[str, RinusPlayerSensor] = {}
+    match_entities: dict[str, RinusMatchSensor] = {}
+    dynamic_added = False
 
     def player_key(player: dict[str, Any]) -> str:
         return str(player.get("uuid") or player.get("id") or player.get("name") or "unknown")
 
-    def sync_players() -> None:
+    def match_key(match: dict[str, Any], index: int = 0) -> str:
+        return str(match.get("id") or match.get("calendar_id") or f"{index}_{match.get('date')}_{match.get('time')}")
+
+    def sync_dynamic_entities() -> None:
+        nonlocal dynamic_added
         current_players = coordinator.data.get("players", []) or []
         current_keys = {player_key(player) for player in current_players}
-        new_entities: list[RinusPlayerSensor] = []
+        new_entities: list[SensorEntity] = []
 
         for player in current_players:
             key = player_key(player)
             if key in player_entities:
+                # Keep the entity object; its state/attributes are read from coordinator data.
                 continue
             entity = RinusPlayerSensor(
                 coordinator, entry, device_info, key, str(player.get("name") or "Onbekende speler")
@@ -54,25 +60,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             player_entities[key] = entity
             new_entities.append(entity)
 
-        if new_entities:
-            async_add_entities(new_entities)
-
         for key in list(player_entities):
             if key in current_keys:
                 continue
             entity = player_entities.pop(key)
             hass.async_create_task(entity.async_remove(force_remove=True))
 
-    sync_players()
-    entities.extend(player_entities.values())
+        current_matches = coordinator.data.get("matches", []) or []
+        current_match_keys = {match_key(match, index) for index, match in enumerate(current_matches)}
 
-    for index, match in enumerate(coordinator.data.get("matches", [])):
-        match_id = str(match.get("id") or match.get("calendar_id") or f"{index}_{match.get('date')}")
-        entities.append(RinusMatchSensor(coordinator, entry, device_info, match_id, match))
+        for index, match in enumerate(current_matches):
+            key = match_key(match, index)
+            if key in match_entities:
+                continue
+            entity = RinusMatchSensor(coordinator, entry, device_info, key)
+            match_entities[key] = entity
+            new_entities.append(entity)
 
-    async_add_entities(entities)
+        for key in list(match_entities):
+            if key in current_match_keys:
+                continue
+            entity = match_entities.pop(key)
+            hass.async_create_task(entity.async_remove(force_remove=True))
 
-    remove_listener = coordinator.async_add_listener(sync_players)
+        if new_entities:
+            async_add_entities(new_entities)
+            dynamic_added = True
+
+    # Add static entities first, then build the initial dynamic set.
+    async_add_entities(static_entities)
+    sync_dynamic_entities()
+
+    remove_listener = coordinator.async_add_listener(sync_dynamic_entities)
     entry.async_on_unload(remove_listener)
 
 
@@ -96,6 +115,10 @@ class RinusSensor(RinusBaseSensor):
     @property
     def native_value(self):
         data = self.coordinator.data or {}
+        if self._kind == "connection":
+            if self.coordinator.last_update_success:
+                return "Verbonden"
+            return "Cookie verlopen of Rinus niet bereikbaar"
         if self._kind == "season":
             return (data.get("team") or {}).get("seasonTitle") or (data.get("calendar") or {}).get("season", {}).get("title") or "Onbekend"
         if self._kind == "team":
@@ -104,7 +127,7 @@ class RinusSensor(RinusBaseSensor):
             return self._opponent(data.get("next_match") or {}) or "Onbekend"
         if self._kind == "next_training":
             training = data.get("next_training") or {}
-            return training.get("time") or "Gepland" if training else "Onbekend"
+            return training.get("time") if training else "Onbekend"
         if self._kind == "next_match":
             match = data.get("next_match") or {}
             if not match:
@@ -120,6 +143,12 @@ class RinusSensor(RinusBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         data = self.coordinator.data or {}
         team = data.get("team") or {}
+        if self._kind == "connection":
+            return {
+                "last_successful_update": self.coordinator.last_update_success,
+                "last_update": data.get("fetched_at"),
+                "update_interval_seconds": int(self.coordinator.update_interval.total_seconds()),
+            }
         if self._kind == "season":
             return {"season_id": team.get("season"), "season_title": team.get("seasonTitle")}
         if self._kind == "team":
@@ -201,7 +230,6 @@ class RinusPlayerSensor(RinusBaseSensor):
     def __init__(self, coordinator, entry, device_info, player_id: str, name: str):
         super().__init__(coordinator, entry, device_info)
         self._player_id = player_id
-        self._player_name = name
         self._attr_name = name
         self._attr_icon = "mdi:account"
         self._attr_unique_id = f"{entry.entry_id}_player_{player_id}"
@@ -214,8 +242,7 @@ class RinusPlayerSensor(RinusBaseSensor):
 
     @property
     def native_value(self):
-        player = self._player()
-        return player.get("total_playing_time", 0)
+        return self._player().get("total_playing_time", 0)
 
     @property
     def native_unit_of_measurement(self):
@@ -234,25 +261,25 @@ class RinusPlayerSensor(RinusBaseSensor):
 class RinusMatchSensor(RinusBaseSensor):
     """One Home Assistant sensor per match with all match/player details as attributes."""
 
-    def __init__(self, coordinator, entry, device_info, match_id: str, match: dict[str, Any]):
+    def __init__(self, coordinator, entry, device_info, match_id: str):
         super().__init__(coordinator, entry, device_info)
         self._match_id = match_id
         self._attr_icon = "mdi:soccer-field"
         self._attr_unique_id = f"{entry.entry_id}_match_{match_id}"
-        self._attr_name = self._display_name(match)
-
-    @staticmethod
-    def _display_name(match: dict[str, Any]) -> str:
-        opponent = RinusSensor._opponent(match) or "Onbekende tegenstander"
-        date = match.get("date") or match.get("matchDay") or "Onbekende datum"
-        return f"Wedstrijd {date} - {opponent}"
 
     def _match(self) -> dict[str, Any]:
-        for match in self.coordinator.data.get("matches", []):
-            candidate = str(match.get("id") or match.get("calendar_id") or "")
+        for index, match in enumerate(self.coordinator.data.get("matches", []) or []):
+            candidate = str(match.get("id") or match.get("calendar_id") or f"{index}_{match.get('date')}_{match.get('time')}")
             if candidate == self._match_id:
                 return match
         return {}
+
+    @property
+    def name(self) -> str:
+        match = self._match()
+        opponent = RinusSensor._opponent(match) or "Onbekende tegenstander"
+        date = match.get("date") or match.get("matchDay") or "Onbekende datum"
+        return f"Wedstrijd {date} - {opponent}"
 
     @property
     def native_value(self):

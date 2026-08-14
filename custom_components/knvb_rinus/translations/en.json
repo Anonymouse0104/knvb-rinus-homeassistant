@@ -2,15 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "KNVB Rinus",
+        "title": "Connect KNVB Rinus",
         "description": "{cookie_help}",
         "data": {
-          "cookie": "Complete Cookie header"
+          "cookie": "Cookie"
+        },
+        "data_description": {
+          "cookie": "Paste the complete Cookie request header from Chrome or Edge."
         }
       }
     },
     "error": {
-      "invalid_auth": "The Rinus session cookie is invalid or expired."
+      "invalid_auth": "The Rinus cookie is invalid or expired."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KNVB Rinus settings",
+        "description": "{cookie_help}",
+        "data": {
+          "cookie": "Cookie",
+          "scan_interval": "Automatic refresh"
+        },
+        "data_description": {
+          "cookie": "Complete Cookie request header from Chrome or Edge.",
+          "scan_interval": "How often Home Assistant fetches new Rinus data."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {}
   }
 }
