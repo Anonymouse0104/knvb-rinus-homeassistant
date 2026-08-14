@@ -1,5 +1,7 @@
 # KNVB Rinus – Home Assistant
 
+**Version 0.4.1**
+
 Custom Home Assistant integration for **KNVB Rinus**.
 
 The integration reads the authenticated Rinus team profile and calendar and exposes team, season, training, match and player information in Home Assistant.
@@ -11,8 +13,9 @@ The integration reads the authenticated Rinus team profile and calendar and expo
 - Next match and opponent
 - Match count and dynamic match entities
 - Player count and one entity per current team player
-- New players added in Rinus are detected automatically on the next refresh
+- New players added in Rinus are detected automatically on the next refresh and registered as new Home Assistant entities
 - Players removed from the Rinus team roster are removed automatically
+- Player UUID/ID variants used by Rinus are supported for stable entity matching
 - Individual player entities use the `mdi:account` icon
 - Playing minutes per player
 - Per-player match history
@@ -107,3 +110,12 @@ Current version: **0.4.0**
 ## License
 
 MIT
+
+## v0.4.1
+
+- Improved dynamic player synchronization after the integration is already running.
+- New player entities are registered immediately when the coordinator receives a refreshed roster.
+- The first state is written when a newly discovered player entity is added.
+- More Rinus player identifier/name field variants are accepted.
+- Roster parsing prefers the largest valid team player list when Rinus returns multiple player arrays.
+- Added debug logging for the parsed roster size.
