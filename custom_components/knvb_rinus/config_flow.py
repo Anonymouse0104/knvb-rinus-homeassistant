@@ -11,10 +11,11 @@ from .const import CONF_COOKIE, DOMAIN, NAME
 
 
 COOKIE_HELP = (
-    "Open Rinus in Chrome/Edge while logged in. Press F12 → Network, open a request "
-    "to rinus.knvb.nl (for example 'profile'), choose Headers and find Request Headers → Cookie. "
-    "Right-click the Cookie value and choose Copy value. Paste the COMPLETE Cookie header here. "
-    "Do NOT copy Response Headers → Set-Cookie. The cookie is sensitive and must never be shared or committed to GitHub."
+    "Open Rinus in Chrome/Edge while logged in. Press F12 → Network, open a request to "
+    "rinus.knvb.nl (for example `team.json` or `profile`), choose Headers and under "
+    "Request Headers find **Cookie**. Right-click the Cookie value and choose Copy value. "
+    "Paste the COMPLETE Cookie header here. Do NOT use Response Headers → Set-Cookie. "
+    "The cookie is sensitive authentication information and must never be shared."
 )
 
 

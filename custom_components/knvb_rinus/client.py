@@ -115,6 +115,51 @@ def _extract_team(text: str) -> dict[str, Any]:
     return {}
 
 
+def _extract_roster(text: str) -> list[dict[str, Any]]:
+    """Extract the current team roster from the Rinus profile payload."""
+    page_props = _page_props(text)
+    roster: list[dict[str, Any]] = []
+
+    team_list = page_props.get("team")
+    if isinstance(team_list, list):
+        for team_entry in team_list:
+            if not isinstance(team_entry, dict):
+                continue
+            players = team_entry.get("players")
+            if not isinstance(players, list):
+                continue
+            for player in players:
+                if not isinstance(player, dict):
+                    continue
+                uuid = player.get("uuid") or player.get("id") or player.get("uUid")
+                name = player.get("name") or player.get("playerName")
+                if uuid and name:
+                    roster.append({"uuid": str(uuid), "name": str(name)})
+
+    # Compatibility fallback if Rinus moves the roster elsewhere.
+    if not roster:
+        for candidate in _walk_dicts(page_props):
+            players = candidate.get("players")
+            if not isinstance(players, list) or not players:
+                continue
+            possible = []
+            for player in players:
+                if not isinstance(player, dict):
+                    continue
+                uuid = player.get("uuid") or player.get("id") or player.get("uUid")
+                name = player.get("name") or player.get("playerName")
+                if uuid and name:
+                    possible.append({"uuid": str(uuid), "name": str(name)})
+            if possible:
+                roster = possible
+                break
+
+    unique: dict[str, dict[str, Any]] = {}
+    for player in roster:
+        unique[player["uuid"]] = player
+    return list(unique.values())
+
+
 def _extract_calendar(text: str) -> dict[str, Any]:
     """Extract the calendar payload from the calendar page."""
     page_props = _page_props(text)
@@ -289,6 +334,7 @@ class RinusClient:
         )
 
         team = _extract_team(team_html)
+        roster = _extract_roster(team_html)
         calendar = _extract_calendar(calendar_html)
         _LOGGER.debug(
             "Rinus parsed team=%s, calendar_items=%d",
@@ -352,7 +398,20 @@ class RinusClient:
         future_training_days.sort(key=lambda item: item.get("date") or "9999-99-99")
         next_training = self._build_next_training(future_training_days, schedule)
 
+        # Start with the complete Rinus team roster so players who have not
+        # appeared in a match yet are still exposed with 0 minutes.
         players: dict[str, dict[str, Any]] = {}
+        for roster_player in roster:
+            uuid = str(roster_player["uuid"])
+            players[uuid] = {
+                "uuid": roster_player["uuid"],
+                "name": roster_player["name"],
+                "total_playing_time": 0,
+                "matches": [],
+                "raw_player": roster_player,
+            }
+
+        # Merge match participation and playing time into the roster.
         for match in matches:
             for player in match.get("players") or []:
                 uuid = player.get("uuid") or player.get("id") or player.get("uUid")
@@ -360,13 +419,15 @@ class RinusClient:
                 if not uuid:
                     continue
 
+                uuid = str(uuid)
                 entry = players.setdefault(
-                    str(uuid),
+                    uuid,
                     {
                         "uuid": uuid,
                         "name": name,
                         "total_playing_time": 0,
                         "matches": [],
+                        "raw_player": player,
                     },
                 )
 
@@ -396,6 +457,7 @@ class RinusClient:
             "next_match": next_match,
             "next_training": next_training,
             "players": list(players.values()),
+            "roster": roster,
             "fetched_at": datetime.now().isoformat(),
         }
 

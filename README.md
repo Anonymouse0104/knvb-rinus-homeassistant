@@ -10,7 +10,10 @@ The integration reads the authenticated Rinus team profile and calendar and expo
 - Training schedule and next training
 - Next match and opponent
 - Match count and detailed match entities
-- Player count and one entity per known player
+- Player count and one entity per current team player
+- New players added in Rinus are detected automatically on the next refresh
+- Players removed from the Rinus team roster are removed automatically
+- Individual player entities use the `mdi:account` icon
 - Playing minutes per player
 - Per-player match history
 - Match players, line-up, formation and status when supplied by Rinus
@@ -37,6 +40,8 @@ Rinus does not provide a documented public API for this integration. The integra
 10. Paste that **entire value** into the KNVB Rinus configuration screen in Home Assistant.
 
 The endpoint `/api/modals/get/team/profile` is one of the authenticated endpoints used by the Rinus web client and is a useful request to inspect.
+
+The current player roster is read from the authenticated team profile payload (`team[].players`). This allows players who have not yet appeared in a match to be added to Home Assistant.
 
 ### Important: Cookie vs Set-Cookie
 
@@ -83,7 +88,7 @@ Rinus can change its web/API structure without notice. If the website changes, s
 
 ## Version
 
-Current version: **0.3.0**
+Current version: **0.3.1**
 
 ## License
 

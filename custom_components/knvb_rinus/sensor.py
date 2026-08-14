@@ -34,27 +34,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         RinusSensor(coordinator, entry, device_info, "players", "Spelers", "mdi:account-group"),
     ]
 
-    # Create one entity per player from the first successful data refresh.
-    # The complete Rinus player object and match history remain available as attributes.
-    for player in coordinator.data.get("players", []):
-        uuid = str(player.get("uuid") or player.get("id") or player.get("name") or "unknown")
-        name = str(player.get("name") or "Onbekende speler")
-        entities.append(
-            RinusPlayerSensor(
-                coordinator, entry, device_info, uuid, name
-            )
-        )
+    player_entities: dict[str, RinusPlayerSensor] = {}
 
-    # Create one entity per match so the dashboard can expose match-specific data.
+    def player_key(player: dict[str, Any]) -> str:
+        return str(player.get("uuid") or player.get("id") or player.get("name") or "unknown")
+
+    def sync_players() -> None:
+        current_players = coordinator.data.get("players", []) or []
+        current_keys = {player_key(player) for player in current_players}
+        new_entities: list[RinusPlayerSensor] = []
+
+        for player in current_players:
+            key = player_key(player)
+            if key in player_entities:
+                continue
+            entity = RinusPlayerSensor(
+                coordinator, entry, device_info, key, str(player.get("name") or "Onbekende speler")
+            )
+            player_entities[key] = entity
+            new_entities.append(entity)
+
+        if new_entities:
+            async_add_entities(new_entities)
+
+        for key in list(player_entities):
+            if key in current_keys:
+                continue
+            entity = player_entities.pop(key)
+            hass.async_create_task(entity.async_remove(force_remove=True))
+
+    sync_players()
+    entities.extend(player_entities.values())
+
     for index, match in enumerate(coordinator.data.get("matches", [])):
         match_id = str(match.get("id") or match.get("calendar_id") or f"{index}_{match.get('date')}")
-        entities.append(
-            RinusMatchSensor(
-                coordinator, entry, device_info, match_id, match
-            )
-        )
+        entities.append(RinusMatchSensor(coordinator, entry, device_info, match_id, match))
 
     async_add_entities(entities)
+
+    remove_listener = coordinator.async_add_listener(sync_players)
+    entry.async_on_unload(remove_listener)
 
 
 class RinusBaseSensor(CoordinatorEntity, SensorEntity):
@@ -135,6 +154,7 @@ class RinusSensor(RinusBaseSensor):
         if self._kind == "players":
             return {
                 "players": data.get("players") or [],
+                "roster": data.get("roster") or [],
                 "fetched_at": data.get("fetched_at"),
             }
         return {}
@@ -183,7 +203,7 @@ class RinusPlayerSensor(RinusBaseSensor):
         self._player_id = player_id
         self._player_name = name
         self._attr_name = name
-        self._attr_icon = "mdi:account-soccer"
+        self._attr_icon = "mdi:account"
         self._attr_unique_id = f"{entry.entry_id}_player_{player_id}"
 
     def _player(self) -> dict[str, Any]:
@@ -207,6 +227,7 @@ class RinusPlayerSensor(RinusBaseSensor):
         attrs = dict(player)
         attrs["match_count"] = len(player.get("matches") or [])
         attrs["raw_player"] = player.get("raw_player")
+        attrs["data_source"] = "Rinus team roster + match data"
         return attrs
 
 
