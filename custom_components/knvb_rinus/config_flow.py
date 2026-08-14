@@ -4,11 +4,18 @@ import voluptuous as vol
 from aiohttp import ClientResponseError
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 
 from .client import RinusClient, RinusDataError
 from .const import CONF_COOKIE, DOMAIN, NAME
+
+
+COOKIE_HELP = (
+    "Open Rinus in Chrome/Edge while logged in. Press F12 → Network, open a request "
+    "to rinus.knvb.nl (for example 'profile'), choose Headers and find Request Headers → Cookie. "
+    "Right-click the Cookie value and choose Copy value. Paste the COMPLETE Cookie header here. "
+    "Do NOT copy Response Headers → Set-Cookie. The cookie is sensitive and must never be shared or committed to GitHub."
+)
 
 
 class RinusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -34,12 +41,8 @@ class RinusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             finally:
                 await client.async_close()
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_COOKIE): vol.All(str, vol.Length(min=10)),
-            }
-        )
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+        schema = vol.Schema({vol.Required(CONF_COOKIE): vol.All(str, vol.Length(min=10))})
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors, description_placeholders={"cookie_help": COOKIE_HELP})
 
     @staticmethod
     @callback
@@ -56,4 +59,4 @@ class RinusOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
         current = self.config_entry.data.get(CONF_COOKIE, "")
         schema = vol.Schema({vol.Required(CONF_COOKIE, default=current): str})
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema, description_placeholders={"cookie_help": COOKIE_HELP})
