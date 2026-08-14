@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Any
-import logging
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -10,8 +9,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, VERSION
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -38,6 +35,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     player_entities: dict[str, RinusPlayerSensor] = {}
     match_entities: dict[str, RinusMatchSensor] = {}
+    dynamic_added = False
+
     def player_key(player: dict[str, Any]) -> str:
         return str(
             player.get("uuid")
@@ -51,57 +50,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             or "unknown"
         )
 
-    def player_name(player: dict[str, Any]) -> str:
-        return str(
-            player.get("name")
-            or player.get("playerName")
-            or player.get("displayName")
-            or player.get("fullName")
-            or "Onbekende speler"
-        )
-
     def match_key(match: dict[str, Any], index: int = 0) -> str:
-        return str(
-            match.get("id")
-            or match.get("calendar_id")
-            or f"{index}_{match.get('date')}_{match.get('time')}"
-        )
+        return str(match.get("id") or match.get("calendar_id") or f"{index}_{match.get('date')}_{match.get('time')}")
 
     def sync_dynamic_entities() -> None:
-        """Synchronize runtime-created player and match entities with Rinus."""
+        nonlocal dynamic_added
         current_players = coordinator.data.get("players", []) or []
-        current_player_keys = {player_key(player) for player in current_players}
+        current_keys = {player_key(player) for player in current_players}
         new_entities: list[SensorEntity] = []
-        new_player_names: list[str] = []
 
         for player in current_players:
             key = player_key(player)
-            if key == "unknown" or key in player_entities:
+            if key in player_entities:
+                # Keep the entity object; its state/attributes are read from coordinator data.
                 continue
-
             entity = RinusPlayerSensor(
-                coordinator,
-                entry,
-                device_info,
-                key,
-                player_name(player),
+                coordinator, entry, device_info, key, str(player.get("name") or "Onbekende speler")
             )
             player_entities[key] = entity
             new_entities.append(entity)
-            new_player_names.append(player_name(player))
 
-        # Remove entities for players no longer present in the Rinus roster.
         for key in list(player_entities):
-            if key in current_player_keys:
+            if key in current_keys:
                 continue
             entity = player_entities.pop(key)
             hass.async_create_task(entity.async_remove(force_remove=True))
 
         current_matches = coordinator.data.get("matches", []) or []
-        current_match_keys = {
-            match_key(match, index)
-            for index, match in enumerate(current_matches)
-        }
+        current_match_keys = {match_key(match, index) for index, match in enumerate(current_matches)}
 
         for index, match in enumerate(current_matches):
             key = match_key(match, index)
@@ -118,17 +94,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             hass.async_create_task(entity.async_remove(force_remove=True))
 
         if new_entities:
-            # update_before_add=True is important for entities that are created
-            # after the initial platform setup. It makes HA register and write
-            # their first state immediately instead of waiting for another
-            # coordinator update.
             async_add_entities(new_entities, update_before_add=True)
-            if new_player_names:
-                _LOGGER.debug(
-                    "KNVB Rinus: nieuwe spelers toegevoegd: %s",
-                    ", ".join(new_player_names),
-                )
+            dynamic_added = True
 
+    # Add static entities first, then build the initial dynamic set.
     async_add_entities(static_entities)
     sync_dynamic_entities()
 
@@ -277,7 +246,16 @@ class RinusPlayerSensor(RinusBaseSensor):
 
     def _player(self) -> dict[str, Any]:
         for player in self.coordinator.data.get("players", []):
-            if str(player.get("uuid") or player.get("id") or player.get("name")) == self._player_id:
+            if str(
+                player.get("uuid")
+                or player.get("uUid")
+                or player.get("uid")
+                or player.get("id")
+                or player.get("playerId")
+                or player.get("userId")
+                or player.get("user_id")
+                or player.get("name")
+            ) == self._player_id:
                 return player
         return {}
 

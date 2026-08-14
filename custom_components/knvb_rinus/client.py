@@ -115,84 +115,87 @@ def _extract_team(text: str) -> dict[str, Any]:
     return {}
 
 
-def _player_identity(player: dict[str, Any]) -> tuple[str | None, str | None]:
-    """Return a stable player identifier and display name from Rinus data."""
-    identifier = (
-        player.get("uuid")
-        or player.get("uUid")
-        or player.get("uid")
-        or player.get("id")
-        or player.get("playerId")
-        or player.get("userId")
-        or player.get("user_id")
-    )
-    name = (
-        player.get("name")
-        or player.get("playerName")
-        or player.get("displayName")
-        or player.get("fullName")
-    )
-    if identifier is None or name is None:
-        return None, None
-    return str(identifier), str(name)
-
-
 def _extract_roster(text: str) -> list[dict[str, Any]]:
-    """Extract the current team roster from the Rinus profile payload.
+    """Extract the complete current team roster from the Rinus profile payload.
 
-    The roster is currently exposed below ``pageProps.team[].players``.
-    Rinus has used several identifier/name field variants over time, so the
-    parser accepts those as well. We keep the largest valid player list found
-    in the payload as a defensive fallback when the site changes its nesting.
+    Rinus can expose player lists in more than one place (the active team
+    object, nested team objects, and match payloads). We merge all valid
+    player records and de-duplicate by UUID so a newly added team member is
+    not missed simply because the payload nesting changed.
     """
     page_props = _page_props(text)
     candidates: list[list[dict[str, Any]]] = []
 
-    def parse_players(value: Any) -> list[dict[str, Any]]:
+    def normalize_players(value: Any) -> list[dict[str, Any]]:
         if not isinstance(value, list):
             return []
         result: list[dict[str, Any]] = []
         for player in value:
             if not isinstance(player, dict):
                 continue
-            identifier, name = _player_identity(player)
-            if identifier and name:
-                result.append(
-                    {
-                        "uuid": identifier,
-                        "name": name,
-                        "raw_player": player,
-                    }
-                )
+            uuid = (
+                player.get("uuid")
+                or player.get("uUid")
+                or player.get("uid")
+                or player.get("id")
+                or player.get("playerId")
+                or player.get("userId")
+                or player.get("user_id")
+            )
+            name = (
+                player.get("name")
+                or player.get("playerName")
+                or player.get("displayName")
+                or player.get("fullName")
+            )
+            if uuid and name:
+                result.append({
+                    "uuid": str(uuid),
+                    "name": str(name),
+                    "raw_player": player,
+                })
         return result
 
-    team = page_props.get("team")
-    if isinstance(team, list):
-        for team_entry in team:
+    # The observed current structure has pageProps.team as a list.
+    team_list = page_props.get("team")
+    if isinstance(team_list, list):
+        for team_entry in team_list:
             if isinstance(team_entry, dict):
-                parsed = parse_players(team_entry.get("players"))
-                if parsed:
-                    candidates.append(parsed)
-    elif isinstance(team, dict):
-        parsed = parse_players(team.get("players"))
-        if parsed:
-            candidates.append(parsed)
+                players = normalize_players(team_entry.get("players"))
+                if players:
+                    candidates.append(players)
 
-    # Find other player arrays as a compatibility fallback. Prefer the largest
-    # valid roster so a secondary, partial player list cannot hide new players.
+    # Also inspect every nested dictionary. This makes the parser resilient
+    # to Rinus moving the roster or returning it in a different wrapper.
     for candidate in _walk_dicts(page_props):
-        parsed = parse_players(candidate.get("players")) if isinstance(candidate, dict) else []
-        if parsed:
-            candidates.append(parsed)
+        players = normalize_players(candidate.get("players"))
+        if players:
+            candidates.append(players)
 
-    if not candidates:
-        return []
-
-    roster = max(candidates, key=len)
+    # Merge all candidates. Prefer the most complete record when the same UUID
+    # occurs in multiple payload sections.
     unique: dict[str, dict[str, Any]] = {}
-    for player in roster:
-        unique[player["uuid"]] = player
-    return list(unique.values())
+    for candidate in candidates:
+        for player in candidate:
+            key = player["uuid"]
+            existing = unique.get(key)
+            if existing is None or len(player.get("raw_player", {})) > len(existing.get("raw_player", {})):
+                unique[key] = player
+
+    roster = [
+        {
+            "uuid": player["uuid"],
+            "name": player["name"],
+            "raw_player": player.get("raw_player", {}),
+        }
+        for player in unique.values()
+    ]
+    _LOGGER.debug(
+        "Rinus roster parser found %d unique players in %d candidate lists",
+        len(roster),
+        len(candidates),
+    )
+    return roster
 
 
 def _extract_calendar(text: str) -> dict[str, Any]:
@@ -381,6 +384,10 @@ class RinusClient:
         if not team:
             _LOGGER.warning(
                 "Rinus teamgegevens konden niet uit de profielresponses worden gehaald"
+            )
+        if not roster:
+            _LOGGER.warning(
+                "Rinus profielresponse bevat geen bruikbare spelerslijst"
             )
         if not calendar.get("items"):
             _LOGGER.warning("Rinus kalender bevat geen items")
