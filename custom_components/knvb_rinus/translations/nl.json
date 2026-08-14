@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KNVB Rinus",
+        "description": "Plak de actuele Cookie request-header van je ingelogde Rinus-sessie.",
+        "data": {"cookie": "Cookie"}
+      }
+    },
+    "error": {"invalid_auth": "De Rinus-sessie/cookie is ongeldig of verlopen."}
+  }
+}

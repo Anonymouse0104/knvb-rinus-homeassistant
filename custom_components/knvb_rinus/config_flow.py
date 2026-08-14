@@ -31,6 +31,8 @@ class RinusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=team_name,
                     data={CONF_COOKIE: cookie},
                 )
+            finally:
+                await client.async_close()
 
         schema = vol.Schema(
             {

@@ -93,12 +93,16 @@ class RinusSensor(CoordinatorEntity, SensorEntity):
                 "is_futsal": team.get("isFutsal"),
                 "schedule": team.get("schedule"),
                 "raw_team": team,
+                "data_source": "Rinus /profile/team",
             }
         if self._kind == "next_opponent":
             match = data.get("next_match") or {}
             return self._match_attrs(match)
         if self._kind == "next_training":
-            return data.get("next_training") or {}
+            training = data.get("next_training") or {}
+            if training:
+                training["data_source"] = "Rinus team schedule + calendar"
+            return training
         if self._kind == "next_match":
             return self._match_attrs(data.get("next_match") or {})
         if self._kind == "matches":
