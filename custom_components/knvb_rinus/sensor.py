@@ -35,7 +35,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     player_entities: dict[str, RinusPlayerSensor] = {}
     match_entities: dict[str, RinusMatchSensor] = {}
-    dynamic_added = False
 
     def player_key(player: dict[str, Any]) -> str:
         return str(
@@ -54,7 +53,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         return str(match.get("id") or match.get("calendar_id") or f"{index}_{match.get('date')}_{match.get('time')}")
 
     def sync_dynamic_entities() -> None:
-        nonlocal dynamic_added
         current_players = coordinator.data.get("players", []) or []
         current_keys = {player_key(player) for player in current_players}
         new_entities: list[SensorEntity] = []
@@ -62,7 +60,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         for player in current_players:
             key = player_key(player)
             if key in player_entities:
-                # Keep the entity object; its state/attributes are read from coordinator data.
                 continue
             entity = RinusPlayerSensor(
                 coordinator, entry, device_info, key, str(player.get("name") or "Onbekende speler")
@@ -95,9 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
         if new_entities:
             async_add_entities(new_entities, update_before_add=True)
-            dynamic_added = True
 
-    # Add static entities first, then build the initial dynamic set.
     async_add_entities(static_entities)
     sync_dynamic_entities()
 
@@ -220,6 +215,7 @@ class RinusSensor(RinusBaseSensor):
 
     @staticmethod
     def _match_summary(match: dict[str, Any]) -> dict[str, Any]:
+        """Return only the compact match data needed by the matches overview sensor."""
         return {
             "id": match.get("id"),
             "date": match.get("date"),
@@ -229,8 +225,11 @@ class RinusSensor(RinusBaseSensor):
             "formation": match.get("formation"),
             "match_status": match.get("matchStatus"),
             "match_type": match.get("matchType"),
-            "players": match.get("players") or [],
-            "raw": match,
+            "match_day": match.get("matchDay"),
+            "match_time": match.get("matchTime"),
+            "match_away": match.get("matchAway"),
+            "team_name": match.get("teamName"),
+            "match_score": match.get("matchScore"),
         }
 
 
