@@ -1,0 +1,24 @@
+name: Create release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: contains(github.event.head_commit.message, 'prepare v0.4.4')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create v0.4.4 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.4.4 \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "KNVB Rinus v0.4.4 – Fix matches sensor attributes" \
+            --notes "## KNVB Rinus v0.4.4\n\n### Fix\n- Reduce the matches overview sensor attributes to compact match data.\n- Remove the complete raw match payload and player lists from the overview sensor attributes.\n- Prevent oversized Home Assistant state attributes and the resulting logbook/state errors.\n\n### HACS\n- Version bumped to 0.4.4."
